@@ -16,7 +16,7 @@
   Circuit:
    WiFi shield attached
    LED attached to pin 5
-
+ 
   created for arduino 25 Nov 2012
   by Tom Igoe
 
@@ -25,16 +25,19 @@
 
 */
 
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
 
-const char* ssid     = "";
+const char* ssid = "";
 const char* password = "";
 const int pin = 13;
 
-WiFiServer server(80);
+const int pResistor = A0;
+int value;
 
+WiFiServer server(80);
 void setup()
 {
+  pinMode(pResistor, INPUT);
   Serial.begin(115200);
 
 
@@ -46,7 +49,6 @@ void setup()
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -62,8 +64,6 @@ void setup()
   server.begin();
 
 }
-
-int value = 0;
 
 void loop() {
   WiFiClient client = server.available();   // listen for incoming clients
@@ -85,10 +85,12 @@ void loop() {
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println();
-
+            
+            value = analogRead(pResistor);
+            client.print(value);
             // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/on\">here</a> to turn the LED on pin 5 on.<br>");
-            client.print("Click <a href=\"/off\">here</a> to turn the LED on pin 5 off.<br>");
+            //client.print("Click <a href=\"/on\">here</a> to turn the LED on pin 5 on.<br>");
+            //client.print("Click <a href=\"/off\">here</a> to turn the LED on pin 5 off.<br>");
 
             // The HTTP response ends with another blank line:
             client.println();
@@ -133,4 +135,3 @@ void turnOff() {
   pinMode(pin, INPUT);
   delay(2000);
 }
-
