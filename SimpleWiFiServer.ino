@@ -1,40 +1,38 @@
 /*
   WiFi Web Server LED Blink
-
   A simple web server that lets you blink an LED via the web.
   This sketch will print the IP address of your WiFi Shield (once connected)
   to the Serial monitor. From there, you can open that address in a web browser
   to turn on and off the LED on pin 5.
-
   If the IP address of your shield is yourAddress:
   http://yourAddress/H turns the LED on
   http://yourAddress/L turns it off
-
   This example is written for a network using WPA encryption. For
   WEP or WPA, change the Wifi.begin() call accordingly.
-
   Circuit:
    WiFi shield attached
    LED attached to pin 5
- 
+
   created for arduino 25 Nov 2012
   by Tom Igoe
-
   ported for sparkfun esp32
   31.01.2017 by Jan Hendrik Berlin
-
 */
 
 #include <ESP8266WiFi.h>
+#include <Math.h>
 
-const char* ssid = "";
-const char* password = "";
-const int pin = 13;
+const char* ssid = "TP-LINK_F6C454";
+const char* password = "75576509";
+const int pin = D7;
 
 const int pResistor = A0;
 int value;
+int maxValue;
+boolean called = false;
 
 WiFiServer server(80);
+
 void setup()
 {
   pinMode(pResistor, INPUT);
@@ -74,27 +72,14 @@ void loop() {
     while (client.connected()) {            // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
+        //Serial.write(c);                    // print it out the serial monitor
         if (c == '\n') {                    // if the byte is a newline character
 
           // if the current line is blank, you got two newline characters in a row.
           // that's the end of the client HTTP request, so send a response:
           if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println();
-            
-            value = analogRead(pResistor);
-            client.print(value);
-            // the content of the HTTP response follows the header:
-            //client.print("Click <a href=\"/on\">here</a> to turn the LED on pin 5 on.<br>");
-            //client.print("Click <a href=\"/off\">here</a> to turn the LED on pin 5 off.<br>");
+            Serial.println("current line is " + currentLine);
 
-            // The HTTP response ends with another blank line:
-            client.println();
-            // break out of the while loop:
             break;
           } else {    // if you got a newline, then clear currentLine:
             currentLine = "";
@@ -103,13 +88,26 @@ void loop() {
           currentLine += c;      // add it to the end of the currentLine
         }
 
-        // Check to see if the client request was "GET /H" or "GET /L":
-        if (currentLine.endsWith("GET /on")) {
-          turnOn();
+        if (!called) {
+            called = true;
+          if (currentLine.endsWith("GET /on")) {
+            client = turnOn(client);
+            
+          }
+          if (currentLine.endsWith("GET /off")) {
+            client = turnOff(client);
+
+          }
+          if (currentLine.endsWith("GET /status")) {
+            client = lightStatus(client);
+          }
+          called = false;
         }
-        if (currentLine.endsWith("GET /off")) {
-          turnOff();
-        }
+
+
+
+
+
       }
     }
     // close the connection:
@@ -118,20 +116,117 @@ void loop() {
   }
 }
 
-void turnOn() {
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, HIGH);
-  delay(2000);
-  //release
-  pinMode(pin, INPUT);
-  delay(2000);
+WiFiClient wrongInput(WiFiClient client) {
+  // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+  // and a content-type so the client knows what's coming, then a blank line:
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-type:text/html");
+  client.println();
+  client.print("Wrong Link");
+  // The HTTP response ends with another blank line:
+  client.println();
+  // break out of the while loop:
+  return client;
 }
 
-void turnOff() {
+WiFiClient lightStatus(WiFiClient client) {
+  // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+  // and a content-type so the client knows what's coming, then a blank line:
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-type:text/html");
+  client.println();
+
+  value = normalization(analogRead(pResistor));
+  client.println("{");
+  client.println("\"sensorValue\":");
+  client.print(value);
+  client.println("}");
+
+//  {
+//  "status" : "online",
+//  "sensorValue" : 97
+//}
+
+  // The HTTP response ends with another blank line:
+  client.println();
+  // break out of the while loop:
+  return client;
+}
+
+WiFiClient turnOn(WiFiClient client) {
   pinMode(pin, OUTPUT);
   digitalWrite(pin, HIGH);
   delay(2000);
   //release
   pinMode(pin, INPUT);
-  delay(2000);
+  //delay(2000);
+
+  // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+  // and a content-type so the client knows what's coming, then a blank line:
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-type:text/html");
+  client.println();
+
+  client.println("Lamp is online");
+  //value = analogRead(pResistor);
+  value = normalization(analogRead(pResistor));
+  client.print(value);
+
+
+  // The HTTP response ends with another blank line:
+  client.println();
+  // break out of the while loop:
+  return client;
+
 }
+
+WiFiClient turnOff(WiFiClient client) {
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, HIGH);
+  delay(2000);
+  //release
+  pinMode(pin, INPUT);
+  //delay(2000);
+
+  // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+  // and a content-type so the client knows what's coming, then a blank line:
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-type:text/html");
+  client.println();
+
+  client.println("Lamp is offline");
+  //value = analogRead(pResistor);
+  value = normalization(analogRead(pResistor));
+  client.print(value);
+
+
+  // The HTTP response ends with another blank line:
+  client.println();
+  // break out of the while loop:
+  return client;
+
+}
+
+int normalization(int value) {
+  if (value > maxValue) {
+    maxValue = value;
+  }
+  if (maxValue <= 1 || value == 0) {
+    return value;
+  }
+  int sign = 100;
+
+  if (value < 0) {
+    value = -value;
+    sign = -100;
+  }
+
+  if (value > maxValue) {
+    value = maxValue;
+  }
+  return log10(value + 1) / log10(maxValue) * sign;
+}
+
+
+
+
