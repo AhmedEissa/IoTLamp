@@ -1,0 +1,64 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+
+ESP8266WebServer server(80);
+const char WiFiAPPSK[] = "password";
+
+
+void setup() {
+
+  Serial.begin(115200);
+
+  setupWiFi();
+  
+  server.on("/body", handleBody); //Associate the handler function to the path
+
+  server.begin(); //Start the server
+
+}
+
+void loop() {
+
+  server.handleClient(); //Handling of incoming requests
+
+}
+
+void handleBody() { //Handler for the body path
+
+  if (server.hasArg("plain") == false) { //Check if body received
+
+    server.send(200, "text/plain", "Body not received");
+    return;
+
+  }
+
+  String message = "Body received:\n";
+  message += server.arg("plain");
+  message += "\n";
+
+  server.send(200, "text/plain", message);
+  Serial.println(message);
+}
+
+void setupWiFi()
+{
+  WiFi.mode(WIFI_AP);
+
+  // Do a little work to get a unique-ish name. Append the
+  // last two bytes of the MAC (HEX'd) to "Thing-":
+  uint8_t mac[WL_MAC_ADDR_LENGTH];
+  WiFi.softAPmacAddress(mac);
+  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+  macID.toUpperCase();
+  String AP_NameString = "ESPLamp " + macID;
+
+  char AP_NameChar[AP_NameString.length() + 1];
+  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+
+  for (int i=0; i<AP_NameString.length(); i++)
+    AP_NameChar[i] = AP_NameString.charAt(i);
+
+  WiFi.softAP(AP_NameChar, WiFiAPPSK);
+}
+
